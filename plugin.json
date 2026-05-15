@@ -1,0 +1,11 @@
+{
+	"$schema": "https://raw.githubusercontent.com/SteamClientHomebrew/Millennium/main/src/sys/plugin-schema.json",
+	"common_name": "Windows Notifications",
+	"name": "steam-win-notify",
+	"description": "Routes Steam notifications to native Windows 11 toast notifications with emoji, dedup, and theme-aware icons.",
+	"backendType": "lua",
+	"version": "1.0.0",
+	"author": "SnakyWarrior",
+	"tags": ["notifications", "windows", "toast", "native", "steam", "millennium", "plugin", "win11", "toast-notifications", "windows-toast", "native-notifications", "notification-forwarder", "steam-client", "desktop-notifications", "focus-assist", "dnd", "emoji", "lua", "typescript", "ffi", "winrt"],
+	"repository": "https://github.com/SnakyWarrior/steam-win-notify"
+}
