@@ -1,194 +1,142 @@
-# steam-win-notify
+# Steam Windows Notifications
 
-A [Millennium](https://steambrew.app/) plugin that routes **all** of Steam's
-in-client notifications to the **native Windows 11 notification system**
-(Action Center toasts).
+**Route Steam in-client notifications to native Windows 11 toast notifications.**
+
+No more missing notifications when Steam is minimized or in the background. This plugin intercepts Steam's notification pipeline and fires real Windows toasts with emoji, theme-aware icons, and deduplication — all with zero console flash.
 
 ## Features
 
-- Catches every kind of Steam notification:
-  - Friend chat messages
-  - Friend requests / online events
-  - Game / lobby / party invites
-  - **Achievement unlocks** (with hero art)
-  - Trade offers
-  - Screenshots taken (with preview)
-  - Download complete
-  - Broadcasts, wishlist sales, gifts, comments, etc.
-- Per-kind toast layouts (hero image for achievements, app-logo avatar for chat, etc.)
-- Configurable: keep Steam's built-in popups OR suppress them so only Windows toasts show.
-- Per-kind filtering.
+- **Native Windows 11 toasts** — Popups appear in the Windows action center, not just inside Steam
+- **Emoji by notification type** — Visual cues at a glance:
+  - 📥 Downloads & Updates
+  - 💬 Chat messages
+  - 👤 Friend activity
+  - 🏆 Achievements
+  - 📸 Screenshots
+  - 🎁 Gifts, 🤝 Trades, 📩 Invites, and more
+- **Theme-aware icon** — Steam logo automatically switches between black (light theme) and white (dark theme)
+- **Toast deduplication** — Repeated notifications (e.g. "Updates Available") replace old toasts instead of stacking
+- **Simple on/off toggle** — One click to enable or disable Windows notifications
+- **No console window flash** — Uses LuaJIT FFI `CreateProcess` with `CREATE_NO_WINDOW` — no cmd.exe popup
+- **Works with Focus Assist** — Toasts appear even when Do Not Disturb is on (Windows 11)
 
----
+## How It Works
+
+```
+Steam notification event
+        │
+        ▼
+Frontend (TypeScript) hooks
+  ┌─────────────────────────────┐
+  │ NotificationStore           │
+  │  • ProcessNotification      │
+  │  • OnNewNotificationReceived│
+  │  • OnNotification           │
+  │                             │
+  │ SteamClient                 │
+  │  • Downloads                │
+  │  • Notifications            │
+  │  • GameSessions             │
+  └──────────┬──────────────────┘
+             │ RPC (JSON string)
+             ▼
+Backend (Lua)
+  ┌─────────────────────────────┐
+  │ Parse notification payload  │
+  │ Look up emoji by kind       │
+  │ Generate PowerShell script  │
+  │ Spawn via FFI CreateProcess │
+  │   (no console window)       │
+  └──────────┬──────────────────┘
+             │
+             ▼
+PowerShell script
+  ┌─────────────────────────────┐
+  │ Detect Windows theme        │
+  │ (registry → SVG fill color) │
+  │                             │
+  │ Register AUMID display name │
+  │ (shows "Steam" not          │
+  │  "Windows PowerShell")      │
+  │                             │
+  │ Fire WinRT toast via        │
+  │ ToastNotificationManager   │
+  └─────────────────────────────┘
+             │
+             ▼
+    Windows 11 Toast 🪟
+```
 
 ## Requirements
 
-| | |
-|---|---|
-| OS | Windows 10 / 11 (PowerShell 5.1+) |
-| Millennium | latest (Lua backend support) |
-| PowerShell module | [BurntToast](https://github.com/Windos/BurntToast) (recommended) |
-| Node.js | 18+ (for building the frontend bundle) |
+- [Millennium](https://steambrew.app) (Steam client modding framework)
+- Windows 10 or 11
 
-The plugin will fall back to raw WinRT toast XML if BurntToast isn't installed,
-but BurntToast gives nicer rendering.
-
----
+**No other dependencies.** The plugin is fully self-contained — no Node.js, no PowerShell modules (BurntToast etc.), no additional runtimes. Everything is built in and ready to use.
 
 ## Installation
 
-### 1. Install BurntToast (one time, recommended)
+### Manual install
 
-Open PowerShell and run:
+1. Download the latest release
+2. Extract to `C:\Program Files (x86)\Steam\plugins\steam-win-notify`
+3. Open Steam → Settings → Plugins → enable "Windows Notifications"
+4. Toggle the plugin off and on once to activate
 
-```powershell
-Install-Module -Name BurntToast -Scope CurrentUser -Force
-```
+## Settings
 
-If you skip this step, the plugin will still work via a built-in WinRT fallback.
+| Setting | Description |
+|---------|-------------|
+| **Enable Windows notifications** | Master toggle. Off = no toasts sent to Windows. |
 
-### 2. Place the plugin folder
+The plugin forwards all notification kinds by default. Per-kind filtering can be added back by editing the frontend source.
 
-This folder should live at:
+## Building from source
 
-```
-C:\Program Files (x86)\Steam\plugins\steam-win-notify\
-```
-
-### 3. Build the frontend bundle
-
-Millennium loads a compiled JS bundle from `.millennium/Dist/index.js`, not
-the raw TypeScript. Open a terminal in the plugin folder and run:
-
-```cmd
+```bash
+git clone https://github.com/SnakyWarrior/steam-win-notify
+cd steam-win-notify
 npm install
 npm run build
 ```
 
-That produces `.millennium/Dist/index.js`. You only need to rerun `npm run build`
-when you change the frontend code.
+Copy `.millennium/Dist/index.js` and `backend/main.lua` to your Steam plugins folder.
 
-### 4. Enable in Steam
+## Development
 
-Steam → **Millennium** → **Plugins** → enable **Windows Notifications** → restart Steam.
+- **Frontend:** `frontend/index.tsx` — TypeScript, hooks into Steam's notification store and `SteamClient.*` APIs
+- **Backend:** `backend/main.lua` — Lua, receives RPC calls from frontend, generates and spawns PowerShell toast scripts
+- **Toast icon:** `steam.svg` — Theme-aware SVG (uses `fill` color based on Windows light/dark mode)
 
-You should see `[steam-win-notify] backend loaded` in
-`C:\Program Files (x86)\Steam\ext\logs\steam-win-notify_log.log`.
-
----
-
-## Configuration
-
-A `config.json` is created at the plugin root on first run:
-
-```json
-{
-  "suppress_native": false,
-  "enabled_kinds": ["*"],
-  "app_id": "Valve.Steam",
-  "cache_images": true
-}
-```
-
-| Key | Description |
-|---|---|
-| `suppress_native` | If `true`, Steam's own in-client popups are hidden — only Windows toasts appear. |
-| `enabled_kinds` | List of notification kinds to forward. `["*"]` = everything. |
-| `app_id` | Windows AppUserModelID used for the toast. `Valve.Steam` makes the toast appear under "Steam" in Action Center. |
-| `cache_images` | Cache remote images locally so toasts render reliably. |
-
-Recognized kinds:
-`chat`, `friend`, `invite`, `achievement`, `trade`, `screenshot`,
-`download`, `broadcast`, `purchase`, `wishlist`, `comment`,
-`moderator`, `gift`, `party`, `generic`.
-
-Edit the file, then restart Steam or invoke the live-reload RPC from the
-Millennium console:
-
-```js
-MILLENNIUM_BACKEND_IPC.postMessage(0, {
-  pluginName: "steam-win-notify",
-  methodName: "reload_config",
-  argumentList: { "": "" }
-})
-```
-
----
-
-## File structure
+## Files
 
 ```
 steam-win-notify/
-├── plugin.json                  # Millennium manifest (backendType: "lua")
-├── config.json                  # User-editable settings
-├── package.json                 # Build deps (@steambrew/*)
-├── tsconfig.json                # TS → .millennium/Dist/index.js
+├── plugin.json              # Millennium plugin manifest
+├── steam.svg                # Toast logo (theme-aware SVG)
+├── backend/
+│   └── main.lua             # Lua backend: RPC, toast generation, FFI process spawn
 ├── frontend/
-│   └── index.tsx                # Hooks Steam's notification paths, calls backend
-└── backend/
-    └── main.lua                 # Receives RPC, fires Windows toasts via PowerShell
+│   └── index.tsx            # TypeScript frontend: hooks, settings UI
+├── .millennium/
+│   └── Dist/
+│       └── index.js         # Built frontend output
+├── package.json             # Build dependencies
+├── tsconfig.json            # TypeScript configuration
+└── README.md
 ```
 
-After `npm run build` you'll also have:
+## Credits
 
-```
-.millennium/Dist/index.js        # Compiled frontend bundle (what Millennium loads)
-node_modules/                    # npm deps
-```
+This plugin was built collaboratively by human and AI:
 
----
+- **andigravity** — Concept, testing, feedback, and direction
+- **opencode** — AI coding assistant ([opencode.ai](https://opencode.ai))
+- **Claude Opus & Sonnet** (Anthropic) — Large language models used during development
+- **big pickle** — The model powering opencode sessions
 
-## How it works
+Built for [Millennium](https://steambrew.app), the Steam client modding framework.
 
-```
-              ┌────────────────────────────────────────────┐
-              │  Steam events                               │
-              │  ─ NotificationStore.ShowNotification        │
-              │  ─ AchievementStore.ShowAchievement…         │
-              │  ─ SteamClient.Notifications callback        │
-              │  ─ SteamClient.Apps achievement callback     │
-              │  ─ SteamClient.Downloads callback            │
-              │  ─ SteamClient.GameSessions screenshots      │
-              │  ─ SteamClient chat / messaging              │
-              └───────────────────────┬────────────────────┘
-                                      │ extract title/body/image + kind
-                                      ▼
-                  frontend/index.tsx ──► callable("send_notification")
-                                                  │
-                                                  ▼
-                                      backend/main.lua  (LuaJIT)
-                                                  │
-                                                  ▼
-                                  powershell.exe + BurntToast
-                                                  │
-                                                  ▼
-                                Windows Action Center toast 🔔
-```
+## License
 
-If `suppress_native` is true, the frontend patches return early so Steam's
-built-in popup never renders — you only see the Windows toast.
-
----
-
-## Troubleshooting
-
-**No toasts appear**
-- Check `Steam\ext\logs\steam-win-notify_log.log` — every hook prints `Hooked …` on success.
-- Try running this in PowerShell directly to verify BurntToast works:
-  ```powershell
-  Import-Module BurntToast; New-BurntToastNotification -Text 'Hi','It works!' -AppId 'Valve.Steam'
-  ```
-- If BurntToast is missing, the plugin falls back to raw WinRT — toasts should still appear.
-
-**Steam still shows its own popups in addition to Windows toasts**
-- This is intentional by default. Set `"suppress_native": true` in `config.json`.
-
-**`[steam-win-notify] Gave up after N attempts` in logs**
-- One of the Steam internal modules wasn't found. The plugin still works via
-  the other hooks (`SteamClient` callbacks), so most notifications still
-  forward. Open an issue with your Steam version if a specific kind is missing.
-
-**Steam won't launch after enabling the plugin**
-- Disable it by editing `C:\Program Files (x86)\Steam\ext\config.json` and
-  removing `"steam-win-notify"` from `plugins.enabledPlugins`, then relaunch
-  Steam and check the log for an error message.
+MIT
