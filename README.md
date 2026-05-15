@@ -108,23 +108,6 @@ Copy `.millennium/Dist/index.js` and `backend/main.lua` to your Steam plugins fo
 - **Backend:** `backend/main.lua` — Lua, receives RPC calls from frontend, generates and spawns PowerShell toast scripts
 - **Toast icon:** `steam.svg` — Theme-aware SVG (uses `fill` color based on Windows light/dark mode)
 
-## Files
-
-```
-steam-win-notify/
-├── plugin.json              # Millennium plugin manifest
-├── steam.svg                # Toast logo (theme-aware SVG)
-├── backend/
-│   └── main.lua             # Lua backend: RPC, toast generation, FFI process spawn
-├── frontend/
-│   └── index.tsx            # TypeScript frontend: hooks, settings UI
-├── .millennium/
-│   └── Dist/
-│       └── index.js         # Built frontend output
-├── package.json             # Build dependencies
-├── tsconfig.json            # TypeScript configuration
-└── README.md
-```
 
 ## Credits
 
