@@ -1,0 +1,10 @@
+node_modules/
+.millennium/Dist/
+.millennium/*.log
+frontend/*.js
+*.zip
+check-logs.ps1
+check-ps1.ps1
+check-vbs.ps1
+toast-diag*.ps1
+launch-daemon.vbs

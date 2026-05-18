@@ -1,0 +1,15 @@
+{
+  "name": "steam-win-notify",
+  "version": "1.0.0",
+  "description": "Route Steam notifications to native Windows toasts.",
+  "main": "./frontend/index.tsx",
+  "scripts": {
+    "dev": "millennium-ttc --build dev",
+    "build": "millennium-ttc --build prod"
+  },
+  "dependencies": {
+    "@steambrew/api": "^5.5.3",
+    "@steambrew/client": "^5.5.3",
+    "@steambrew/ttc": "^2.7.3"
+  }
+}
